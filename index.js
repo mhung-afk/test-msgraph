@@ -5,6 +5,8 @@ import session from 'express-session'
 import dotenv from 'dotenv'
 dotenv.config()
 
+const HOST = process.env.HOST || 'http://localhost:3000'
+
 const msalClient = new ConfidentialClientApplication({
     auth: {
         clientId: process.env.CLIENT_ID,
@@ -27,7 +29,7 @@ function getAuthenticatedClient(msalClient, userId) {
                 if (account) {
                     const response = await msalClient.acquireTokenSilent({
                         scopes: ['user.read', 'mail.read'],
-                        redirectUri: 'http://localhost:3000/auth/callback',
+                        redirectUri: `${HOST}/auth/callback`,
                         account: account
                     });
 
@@ -70,8 +72,8 @@ const graph = {
         await client.api('/subscriptions')
             .post({
                 changeType: 'created,updated',
-                notificationUrl: 'https://localhost:3000/auth/noti-url',
-                lifecycleNotificationUrl: 'https://localhost:3000/auth/noti-url',
+                notificationUrl: `${HOST}/auth/noti-url`,
+                lifecycleNotificationUrl: `${HOST}/auth/noti-url`,
                 resource: '/me/mailfolders(\'inbox\')/messages',
                 expirationDateTime: '2024-06-01',
                 clientState: '9f8596a7-e356-4588-94a5-1d0699f339b8'
@@ -97,7 +99,7 @@ app.use(express.json())
 app.get('/auth/signin', async (req, res) => {
     const urlParameters = {
         scopes: ['user.read', 'mail.read'],
-        redirectUri: 'http://localhost:3000/auth/callback'
+        redirectUri: `${HOST}/auth/callback`
     }
 
     const authUrl = await msalClient.getAuthCodeUrl(urlParameters)
@@ -108,7 +110,7 @@ app.get('/auth/callback', async (req, res) => {
     const tokenRequest = {
         code: req.query.code,
         scopes: ['user.read', 'mail.read'],
-        redirectUri: 'http://localhost:3000/auth/callback'
+        redirectUri: `${HOST}/auth/callback`
     };
 
     const response = await msalClient.acquireTokenByCode(tokenRequest)

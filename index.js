@@ -118,17 +118,17 @@ app.get('/auth/callback', async (req, res) => {
     // save response as a session
     req.session.userId = response.account.homeAccountId
 
-    const respSub = await graph.createEmailSubcription(
-        msalClient,
-        req.session.userId
-    );
+    // const respSub = await graph.createEmailSubcription(
+    //     msalClient,
+    //     req.session.userId
+    // );
     // const subcription = await graph.getEmailSubcription(
     //     msalClient,
     //     req.session.userId
     // )
     // console.log(subcription)
 
-    res.json(respSub)
+    res.json(response)
 })
 
 app.post('/auth/noti-url', async (req, res) => {

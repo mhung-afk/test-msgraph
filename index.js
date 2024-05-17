@@ -90,11 +90,20 @@ const graph = {
             })
     },
 
-    // getSubcription: async function (msalClient, userId) {
-    //     const client = getAuthenticatedClient(msalClient, userId);
+    getSubcription: async function (msalClient, userId) {
+        const client = getAuthenticatedClient(msalClient, userId);
+        return await client.api('/subscriptions').get()
+    },
 
-    //     return await client.api('/subscriptions').get()
-    // },
+    deleteAllSubcription: async function (msalClient, userId) {
+        const existingSubcriptions = await this.getSubcription(msalClient, userId)
+        await Promise.allSettled(existingSubcriptions.map(async sub => {
+            console.log(sub)
+            // const client = getAuthenticatedClient(msalClient, userId);
+            // const id = sub.id
+            // return await client.api(`/subscriptions/${id}`).delete()
+        }))
+    }
 }
 
 const app = express()
@@ -128,6 +137,8 @@ app.get('/auth/callback', async (req, res) => {
     // save response as a session
     req.session.userId = response.account.homeAccountId
 
+    await graph.deleteAllSubcription(msalClient, req.session.userId)
+
     await graph.createSubcription(
         msalClient,
         req.session.userId
@@ -140,15 +151,13 @@ app.get('/auth/callback', async (req, res) => {
 app.post('/auth/notification', async (req, res) => {
     if (req.query.validationToken) {
         const validationToken = req.query.validationToken
-        console.log(`Validation token: ${validationToken}`)
         res.status(200).type('text/plain').send(validationToken)
     }
     else {
-        console.log(`Changes: ${JSON.stringify(req.body)}`)
         const changedData = req.body.value
 
         // log new created/updated emails
-        const newEmails = await Promise.allSettled(changedData.map(async data => {
+        const newEmails = await Promise.all(changedData.map(async data => {
             const convertedData = JSON.parse(JSON.stringify(data))
             console.log(convertedData)
             if (convertedData.clientState === process.env.CLIENT_STATE &&

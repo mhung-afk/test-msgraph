@@ -66,7 +66,17 @@ const graph = {
         return messages;
     },
 
-    createEmailSubcription: async function (msalClient, userId) {
+    getEmailById: async function (msalClient, userId, emailId) {
+        const client = getAuthenticatedClient(msalClient, userId);
+
+        const message = await client
+            .api(`/me/messages/${emailId}`)
+            .select('sender,subject,from,toRecipients')
+            .get();
+        return message;
+    },
+
+    createSubcription: async function (msalClient, userId) {
         const client = getAuthenticatedClient(msalClient, userId);
 
         await client.api('/subscriptions')
@@ -80,11 +90,11 @@ const graph = {
             })
     },
 
-    getEmailSubcription: async function (msalClient, userId) {
-        const client = getAuthenticatedClient(msalClient, userId);
+    // getSubcription: async function (msalClient, userId) {
+    //     const client = getAuthenticatedClient(msalClient, userId);
 
-        return await client.api('/subscriptions').get()
-    },
+    //     return await client.api('/subscriptions').get()
+    // },
 }
 
 const app = express()
@@ -118,23 +128,16 @@ app.get('/auth/callback', async (req, res) => {
     // save response as a session
     req.session.userId = response.account.homeAccountId
 
-    await graph.createEmailSubcription(
+    await graph.createSubcription(
         msalClient,
         req.session.userId
     );
     console.log(`Create a subcription successfully.`)
 
-    const respSub = await graph.getEmailSubcription(
-        msalClient,
-        req.session.userId
-    )
-    console.log(`Subcription: ${JSON.stringify(respSub)}`)
-
     res.json(response)
 })
 
 app.post('/auth/notification', async (req, res) => {
-    console.log(req.body)
     if (req.query.validationToken) {
         const validationToken = req.query.validationToken
         console.log(`Validation token: ${validationToken}`)
@@ -142,6 +145,22 @@ app.post('/auth/notification', async (req, res) => {
     }
     else {
         console.log(`Changes: ${JSON.stringify(req.body)}`)
+        const changedData = req.body.value
+
+        // log new created/updated emails
+        const newEmails = await Promise.allSettled(changedData.map(async data => {
+            const convertedData = JSON.parse(JSON.stringify(data))
+            console.log(convertedData)
+            if (convertedData.clientState === process.env.CLIENT_STATE &&
+                convertedData.resourceData['@odata.type'] === "#Microsoft.Graph.Message") {
+                return await graph.getEmailById(
+                    msalClient,
+                    req.session.userId,
+                    convertedData.resourceData.id)
+            }
+            return
+        }))
+        console.log(newEmails)
         res.status(200).send('OK')
     }
 })
@@ -168,6 +187,19 @@ app.get('/emails', async (req, res) => {
     );
 
     res.json(emails)
+})
+
+app.get('/emails/:id', async (req, res) => {
+    if (!req.session.userId) {
+        res.status(400).send('Error')
+    }
+    const email = await graph.getEmailById(
+        msalClient,
+        req.session.userId,
+        req.params.id
+    );
+
+    res.json(email)
 })
 
 app.listen(3000, () => {

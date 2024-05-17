@@ -7,6 +7,8 @@ dotenv.config()
 
 const HOST = process.env.HOST || 'http://localhost:3000'
 
+const userIds = []
+
 const msalClient = new ConfidentialClientApplication({
     auth: {
         clientId: process.env.CLIENT_ID,
@@ -16,6 +18,9 @@ const msalClient = new ConfidentialClientApplication({
 })
 
 function getAuthenticatedClient(msalClient, userId) {
+    if (!userId) {
+        throw Error('No userId is provided.')
+    }
     const client = Client.init({
         // Implement an auth provider that gets a token
         // from the app's MSAL instance
@@ -81,12 +86,11 @@ const graph = {
 
         await client.api('/subscriptions')
             .post({
-                changeType: 'created,updated',
-                notificationUrl: `${HOST}/auth/notification`,
-                lifecycleNotificationUrl: `${HOST}/auth/notification`,
+                changeType: 'created',
+                notificationUrl: `${HOST}/hook/notification`,
                 resource: '/me/messages',
                 expirationDateTime: '2024-05-20',
-                clientState: process.env.CLIENT_STATE
+                clientState: userId
             })
     },
 
@@ -136,6 +140,7 @@ app.get('/auth/callback', async (req, res) => {
 
     // save response as a session
     req.session.userId = response.account.homeAccountId
+    userIds.push(req.session.userId)
 
     await graph.deleteAllSubcription(msalClient, req.session.userId)
 
@@ -148,28 +153,21 @@ app.get('/auth/callback', async (req, res) => {
     res.json(response)
 })
 
-app.post('/auth/notification', async (req, res) => {
+// api for MS Graph
+app.post('/hook/notification', async (req, res) => {
     if (req.query.validationToken) {
         const validationToken = req.query.validationToken
         res.status(200).type('text/plain').send(validationToken)
     }
     else {
-        const changedData = req.body.value
+        const changedData = JSON.parse(JSON.stringify(req.body.value))
 
         // log new created/updated emails
-        const newEmails = await Promise.all(changedData.map(async data => {
-            const convertedData = JSON.parse(JSON.stringify(data))
-            console.log(convertedData)
-            if (convertedData.clientState === process.env.CLIENT_STATE &&
-                convertedData.resourceData['@odata.type'] === "#Microsoft.Graph.Message") {
-                return await graph.getEmailById(
-                    msalClient,
-                    req.session.userId,
-                    convertedData.resourceData.id)
-            }
-            return
-        }))
-        console.log(newEmails)
+        console.log(changedData.filter(data =>
+            data.changeType === 'created' &&
+            userIds.indexOf(data.clientState) >= 0 &&
+            data.resourceData['@odata.type'] === "#Microsoft.Graph.Message"
+        ))
         res.status(200).send('OK')
     }
 })
@@ -177,6 +175,7 @@ app.post('/auth/notification', async (req, res) => {
 app.get('/user', async (req, res) => {
     if (!req.session.userId) {
         res.status(400).send('Error')
+        return
     }
     const user = await graph.getUserDetails(
         msalClient,
@@ -189,6 +188,7 @@ app.get('/user', async (req, res) => {
 app.get('/emails', async (req, res) => {
     if (!req.session.userId) {
         res.status(400).send('Error')
+        return
     }
     const emails = await graph.getEmails(
         msalClient,
@@ -201,6 +201,7 @@ app.get('/emails', async (req, res) => {
 app.get('/emails/:id', async (req, res) => {
     if (!req.session.userId) {
         res.status(400).send('Error')
+        return
     }
     const email = await graph.getEmailById(
         msalClient,

@@ -72,11 +72,11 @@ const graph = {
         await client.api('/subscriptions')
             .post({
                 changeType: 'created,updated',
-                notificationUrl: `${HOST}/auth/noti-url`,
-                lifecycleNotificationUrl: `${HOST}/auth/noti-url`,
-                resource: '/me/mailfolders(\'inbox\')/messages',
-                expirationDateTime: '2024-06-01',
-                clientState: '9f8596a7-e356-4588-94a5-1d0699f339b8'
+                notificationUrl: `${HOST}/auth/notification`,
+                lifecycleNotificationUrl: `${HOST}/auth/notification`,
+                resource: '/me/messages',
+                expirationDateTime: '2024-05-20',
+                clientState: process.env.CLIENT_STATE
             })
     },
 
@@ -118,21 +118,32 @@ app.get('/auth/callback', async (req, res) => {
     // save response as a session
     req.session.userId = response.account.homeAccountId
 
-    // const respSub = await graph.createEmailSubcription(
-    //     msalClient,
-    //     req.session.userId
-    // );
-    // const subcription = await graph.getEmailSubcription(
-    //     msalClient,
-    //     req.session.userId
-    // )
-    // console.log(subcription)
+    await graph.createEmailSubcription(
+        msalClient,
+        req.session.userId
+    );
+    console.log(`Create a subcription successfully.`)
+
+    const respSub = await graph.getEmailSubcription(
+        msalClient,
+        req.session.userId
+    )
+    console.log(`Subcription: ${JSON.stringify(respSub)}`)
 
     res.json(response)
 })
 
-app.post('/auth/noti-url', async (req, res) => {
-    res.status(200).send('OK')
+app.post('/auth/notification', async (req, res) => {
+    console.log(req.body)
+    if (req.query.validationToken) {
+        const validationToken = req.query.validationToken
+        console.log(`Validation token: ${validationToken}`)
+        res.status(200).type('text/plain').send(validationToken)
+    }
+    else {
+        console.log(`Changes: ${JSON.stringify(req.body)}`)
+        res.status(200).send('OK')
+    }
 })
 
 app.get('/user', async (req, res) => {

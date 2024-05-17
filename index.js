@@ -92,18 +92,17 @@ const graph = {
 
     getSubcription: async function (msalClient, userId) {
         const client = getAuthenticatedClient(msalClient, userId);
-        return await client.api('/subscriptions').get()
+        const data = await client.api('/subscriptions').get()
+        return data.value
     },
 
     deleteAllSubcription: async function (msalClient, userId) {
         const existingSubcriptions = await this.getSubcription(msalClient, userId)
-        console.log(existingSubcriptions)
-        // await Promise.allSettled(existingSubcriptions.map(async sub => {
-        //     console.log(sub)
-        //     // const client = getAuthenticatedClient(msalClient, userId);
-        //     // const id = sub.id
-        //     // return await client.api(`/subscriptions/${id}`).delete()
-        // }))
+        await Promise.allSettled(existingSubcriptions.map(async sub => {
+            const client = getAuthenticatedClient(msalClient, userId);
+            const id = sub.id
+            return await client.api(`/subscriptions/${id}`).delete()
+        }))
     }
 }
 

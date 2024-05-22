@@ -78,7 +78,7 @@ const graph = {
 
         const message = await client
             .api(`/me/messages/${emailId}`)
-            .select('sender,subject,from,toRecipients')
+            .select('id,subject,from,toRecipients,ccRecipients,bccRecipients,body')
             .get();
         return message;
     },

@@ -1,3 +1,5 @@
+// test-msgraph@outlook.com - graphMS_Test
+
 import { ConfidentialClientApplication } from '@azure/msal-node'
 import { Client } from '@microsoft/microsoft-graph-client'
 import express from 'express'
@@ -89,7 +91,7 @@ const graph = {
                 changeType: 'created',
                 notificationUrl: `${HOST}/hook/notification`,
                 resource: '/me/messages',
-                expirationDateTime: '2024-05-20',
+                expirationDateTime: '2024-05-25',
                 clientState: userId
             })
     },
